@@ -1,52 +1,57 @@
-# 🧠 DocuVault: Enterprise Hybrid-RAG Microservice
+# DocuVault AI: Enterprise Document Intelligence & Hybrid RAG Workbench
 
-A high-throughput, zero-disk I/O Retrieval-Augmented Generation (RAG) microservice designed for financial and legal document extraction. Architected to bypass the latency of distributed vector databases, it consolidates dense vector similarity, sparse lexical search, and cross-encoder reranking into a single PostgreSQL 16 engine, paired with a modern Angular 19 zoneless frontend.
+![Python](https://img.shields.io/badge/-Python_3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Angular](https://img.shields.io/badge/-Angular_18-DD0031?style=flat-square&logo=angular&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/-PostgreSQL_16-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/-Redis_7-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Celery](https://img.shields.io/badge/-Celery-37814A?style=flat-square&logo=celery&logoColor=white)
 
----
+An enterprise-grade Document Intelligence platform designed to solve the two fundamental document processing bottlenecks in fintech, legal, and procurement back-offices: **Hallucination in ledger arithmetic** and **recall failure in dense vector search**. 
+
+DocuVault AI implements a Zero-Disk In-Memory ingestion engine, a Self-Healing LLM Reflection Loop for deterministic data extraction, and a 4-Tier Hybrid RAG cascade with local cross-encoder reranking.
 
 ## 🏗️ System Architecture & Data Flow
 
 ```mermaid
-flowchart TB
-    subgraph Client [Angular Frontend]
-        UI[Angular 19 Zoneless SPA]
+graph TD
+    subgraph Client Layer
+        UI[Angular 18 Enterprise Workbench]
     end
 
-    subgraph Microservice [FastAPI RAG Pipeline]
-        direction TB
-        Stream[In-Memory PDF Stream] --> Chunk[LangChain Chunking]
-        Chunk --> Embed[FastEmbed ONNX CPU]
-        
-        Query[Search Gateway] --> Hybrid{Hybrid Cascade}
-        Hybrid -->|Cosine Distance| HNSW[pgvector HNSW Index]
-        Hybrid -->|Lexical Match| GIN[GIN TSVECTOR Index]
-        
-        HNSW --> RRF[Reciprocal Rank Fusion]
-        GIN --> RRF
-        RRF --> Rerank[FlashRank Cross-Encoder]
-        Rerank --> Validator[Pydantic Math Validator]
+    subgraph API & Queuing Layer
+        API[FastAPI Async Gateway]
+        Redis[(Redis Ephemeral Buffer)]
+        Worker[Celery Distributed Worker]
     end
 
-    subgraph Storage [Single-Engine Database]
+    subgraph Zero-Disk Processing Engine
+        PyMuPDF[PyMuPDF In-Memory BytesIO]
+        TrackA[Track A: Deterministic Extraction]
+        TrackB[Track B: Hybrid RAG Pipeline]
+    end
+
+    subgraph AI & Data Persistence
+        Groq[Groq LPU / Instructor]
+        Pydantic[Pydantic v2 Validator]
+        Embed[FastEmbed BAAI/bge-small]
         DB[(PostgreSQL 16)]
+        VectorDB[(pgvector HNSW)]
     end
 
-    subgraph AI [Reasoning Tier]
-        LLM[Groq Llama-3.3-70b]
-    end
+    UI -->|1MB Chunked Streams| API
+    API -->|HTTP 202 / Cache| Redis
+    Redis -->|Dequeue| Worker
+    Worker --> PyMuPDF
+    PyMuPDF --> TrackA
+    PyMuPDF --> TrackB
 
-    UI -- "POST /ingest" --> Stream
-    Embed -- "Atomic Transaction" --> DB
-    
-    UI -- "POST /search" --> Query
-    DB -. "Vector & TSVECTOR" .-> Hybrid
-    Validator <-->|"Self-Healing Error Loop"| LLM
-    Validator -- "Validated JSONB" --> UI
+    %% Track A Flow
+    TrackA --> Groq
+    Groq -->|JSON Outputs| Pydantic
+    Pydantic -->|Self-Healing Reflection Loop| Groq
+    Pydantic -->|Validated Schema| DB
 
-    classDef backend fill:#1e293b,stroke:#475569,stroke-width:2px,color:#f8fafc
-    classDef db fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc
-    classDef ai fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc
-    
-    class Stream,Chunk,Embed,Query,Hybrid,RRF,Rerank,Validator backend
-    class DB,HNSW,GIN db
-    class LLM ai
+    %% Track B Flow
+    TrackB --> Embed
+    Embed -->|384d Vectors| VectorDB
