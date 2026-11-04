@@ -15,43 +15,43 @@ DocuVault AI implements a Zero-Disk In-Memory ingestion engine, a Self-Healing L
 
 ```mermaid
 graph TD
-    subgraph Client Layer
-        UI[Angular 18 Enterprise Workbench]
+    subgraph Client_Layer ["Client Layer"]
+        UI["Angular 18 Enterprise Workbench"]
     end
 
-    subgraph API & Queuing Layer
-        API[FastAPI Async Gateway]
-        Redis[(Redis Ephemeral Buffer)]
-        Worker[Celery Distributed Worker]
+    subgraph API_Queuing ["API & Queuing Layer"]
+        API["FastAPI Async Gateway"]
+        Redis[("Redis Ephemeral Buffer")]
+        Worker["Celery Distributed Worker"]
     end
 
-    subgraph Zero-Disk Processing Engine
-        PyMuPDF[PyMuPDF In-Memory BytesIO]
-        TrackA[Track A: Deterministic Extraction]
-        TrackB[Track B: Hybrid RAG Pipeline]
+    subgraph Processing_Engine ["Zero-Disk Processing Engine"]
+        PyMuPDF["PyMuPDF In-Memory BytesIO"]
+        TrackA["Track A: Deterministic Extraction"]
+        TrackB["Track B: Hybrid RAG Pipeline"]
     end
 
-    subgraph AI & Data Persistence
-        Groq[Groq LPU / Instructor]
-        Pydantic[Pydantic v2 Validator]
-        Embed[FastEmbed BAAI/bge-small]
-        DB[(PostgreSQL 16)]
-        VectorDB[(pgvector HNSW)]
+    subgraph AI_Data ["AI & Data Persistence"]
+        Groq["Groq LPU / Instructor"]
+        Pydantic["Pydantic v2 Validator"]
+        Embed["FastEmbed BAAI/bge-small"]
+        DB[("PostgreSQL 16")]
+        VectorDB[("pgvector HNSW")]
     end
 
-    UI -->|1MB Chunked Streams| API
-    API -->|HTTP 202 / Cache| Redis
-    Redis -->|Dequeue| Worker
+    UI -->|"1MB Chunked Streams"| API
+    API -->|"HTTP 202 / Cache"| Redis
+    Redis -->|"Dequeue"| Worker
     Worker --> PyMuPDF
     PyMuPDF --> TrackA
     PyMuPDF --> TrackB
 
     %% Track A Flow
     TrackA --> Groq
-    Groq -->|JSON Outputs| Pydantic
-    Pydantic -->|Self-Healing Reflection Loop| Groq
-    Pydantic -->|Validated Schema| DB
+    Groq -->|"JSON Outputs"| Pydantic
+    Pydantic -->|"Self-Healing Reflection"| Groq
+    Pydantic -->|"Validated Schema"| DB
 
     %% Track B Flow
     TrackB --> Embed
-    Embed -->|384d Vectors| VectorDB
+    Embed -->|"384d Vectors"| VectorDB
